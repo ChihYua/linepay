@@ -41,7 +41,10 @@ LINE_PAY_PRODUCTION_URL = "https://api-pay.line.me/v2/payments"
 
 @app.post("/api/linepay/pay")
 async def linepay_pay(request: LinePayRequest):
-    # 發送資料到 API B
+    # 檢查 barcode 長度
+    if len(request.barcode) != 18:
+        return {"status": "barcode error"}
+
     try:
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         payload = {"key": request.key, "machine": request.machine, "time": current_time}
@@ -51,38 +54,22 @@ async def linepay_pay(request: LinePayRequest):
         api_b_response = response.json()
     except httpx.RequestError as exc:
         raise HTTPException(status_code=500, detail=f"API B Request failed: {exc}")
-    except httpx.HTTPStatusError as exc:
-        raise HTTPException(
-            status_code=exc.response.status_code,
-            detail=f"API B Error: {exc.response.text}",
-        )
-
-    # 抓取 channel_id 和 channel_secret
+    
     data_items = api_b_response.get("data", [])
     if not data_items or not isinstance(data_items, list):
-        raise HTTPException(
-            status_code=500,
-            detail="Invalid API B response structure: missing 'data' field or not a list."
-        )
+        raise HTTPException(status_code=500, detail="Invalid API B response structure.")
     channel_id = data_items[0].get("LINE_ChannelId")
     channel_secret = data_items[0].get("LINE_ChannelSecret")
     if not channel_id or not channel_secret:
-        raise HTTPException(
-            status_code=500,
-            detail="Missing LINE_ChannelId or LINE_ChannelSecret in API B response."
-        )
+        raise HTTPException(status_code=500, detail="Missing LINE Pay credentials.")
 
-    # 發送資料到 LINE Pay
     try:
         base_url = (
-            LINE_PAY_PRODUCTION_URL
-            if os.getenv("APP_ENV") == "production"
-            else LINE_PAY_SANDBOX_URL
+            LINE_PAY_PRODUCTION_URL if os.getenv("APP_ENV") == "production" else LINE_PAY_SANDBOX_URL
         )
         pay_url = f"{base_url}/oneTimeKeys/pay"
         req_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        store_id = request.machine
-        order_id = f"{req_time}{request.payway}{store_id}"
+        order_id = f"{req_time}{request.payway}{request.machine}"
 
         body = {
             "amount": request.amount,
@@ -100,28 +87,13 @@ async def linepay_pay(request: LinePayRequest):
             response = await client.post(pay_url, json=body, headers=headers, timeout=20.0)
             response.raise_for_status()
         line_pay_response = response.json()
-    except httpx.RequestError as exc:
-        if isinstance(exc, httpx.TimeoutException):
-            try:
-                inquire_response = await linepay_inquire(channel_id, channel_secret, order_id)
-                return {
-                    "status": "timeout",
-                    "data": inquire_response,
-                }
-            except HTTPException as inquire_exc:
-                if inquire_exc.status_code == 500 and "timeout" in inquire_exc.detail.lower():
-                    return {
-                        "status": "error",
-                        "code": 9999,
-                        "message": "Payment request and inquiry both timed out.",
-                    }
-                raise inquire_exc
-        raise HTTPException(status_code=500, detail=f"LINE Pay Request failed: {exc}")
     except httpx.HTTPStatusError as exc:
-        raise HTTPException(
-            status_code=exc.response.status_code,
-            detail=f"LINE Pay Error: {exc.response.text}",
-        )
+        if exc.response.status_code in [1172, 1198]:
+            inquire_response = await linepay_inquire(channel_id, channel_secret, order_id)
+            return {"status": "check_transaction", "data": inquire_response}
+        raise HTTPException(status_code=exc.response.status_code, detail=f"LINE Pay Error: {exc.response.text}")
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=500, detail=f"LINE Pay Request failed: {exc}")
 
     return {"status": "success", "data": line_pay_response}
 
