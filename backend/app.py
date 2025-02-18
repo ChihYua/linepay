@@ -13,6 +13,7 @@ class LinePayRequest(BaseModel):
     barcode: str  # 修改為小駝峰形式
     amount: int
     payway: str
+    test: int  # 新增 test 參數
 
 # 定義退款請求的資料結構
 class LinePayRefundRequest(BaseModel):
@@ -20,6 +21,7 @@ class LinePayRefundRequest(BaseModel):
     machine: str
     transactionId: str  # 修改為小駝峰形式
     refundAmount: int
+    test: int  # 新增 test 參數
 
 # 玉山支付交易請求模型
 class EsunPayRequest(BaseModel):
@@ -54,10 +56,11 @@ async def linepay_pay(request: LinePayRequest):
         api_b_response = response.json()
     except httpx.RequestError as exc:
         raise HTTPException(status_code=500, detail=f"API B Request failed: {exc}")
-    
+
     data_items = api_b_response.get("data", [])
     if not data_items or not isinstance(data_items, list):
         raise HTTPException(status_code=500, detail="Invalid API B response structure.")
+
     channel_id = data_items[0].get("LINE_ChannelId")
     channel_secret = data_items[0].get("LINE_ChannelSecret")
     if not channel_id or not channel_secret:
@@ -65,7 +68,7 @@ async def linepay_pay(request: LinePayRequest):
 
     try:
         base_url = (
-            LINE_PAY_PRODUCTION_URL if os.getenv("APP_ENV") == "production" else LINE_PAY_SANDBOX_URL
+            LINE_PAY_SANDBOX_URL if request.test == 1 else LINE_PAY_PRODUCTION_URL
         )
         pay_url = f"{base_url}/oneTimeKeys/pay"
         req_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
@@ -93,9 +96,25 @@ async def linepay_pay(request: LinePayRequest):
             return {"status": "check_transaction", "data": inquire_response}
         raise HTTPException(status_code=exc.response.status_code, detail=f"LINE Pay Error: {exc.response.text}")
     except httpx.RequestError as exc:
+        if isinstance(exc, httpx.TimeoutException):  
+            try:
+                inquire_response = await linepay_inquire(channel_id, channel_secret, order_id)
+                return {
+                    "status": "timeout",
+                    "data": inquire_response,
+                }
+            except HTTPException as inquire_exc:
+                if inquire_exc.status_code == 500 and "timeout" in inquire_exc.detail.lower():
+                    return {
+                        "status": "error",
+                        "code": 9999,
+                        "message": "Payment request and inquiry both timed out.",
+                    }
+                raise inquire_exc  # 若查詢請求有其他錯誤，則拋出異常
         raise HTTPException(status_code=500, detail=f"LINE Pay Request failed: {exc}")
 
     return {"status": "success", "data": line_pay_response}
+
 
 
 @app.get("/api/linepay/inquire")
@@ -147,9 +166,7 @@ async def linepay_refund(request: LinePayRefundRequest):
         channel_secret = data_items[0].get("LINE_ChannelSecret")
 
         base_url = (
-            LINE_PAY_PRODUCTION_URL
-            if os.getenv("APP_ENV") == "production"
-            else LINE_PAY_SANDBOX_URL
+            LINE_PAY_SANDBOX_URL if request.test == 1 else LINE_PAY_PRODUCTION_URL
         )
         url = f"{base_url}/{request.transactionId}/refund"
 
