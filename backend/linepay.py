@@ -17,7 +17,7 @@ class LinePayRequest(BaseModel):
 class LinePayRefundRequest(BaseModel):
     key: str
     machine: str
-    transactionId: str
+    orderId: str  # 原來是 transactionId，現在改成 orderId
     refundAmount: int
     test: int  # 1: 測試模式，0: 正式環境
 
@@ -127,7 +127,7 @@ class LinePayAPI:
             base_url = (
                 LinePayAPI.LINE_PAY_SANDBOX_URL if request.test == 1 else LinePayAPI.LINE_PAY_PRODUCTION_URL
             )
-            url = f"{base_url}/orders/{request.transactionId}/refund"
+            url = f"{base_url}/orders/{request.orderId}/refund"
 
             body = {"refundAmount": request.refundAmount}
             headers = {
