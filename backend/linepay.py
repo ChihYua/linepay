@@ -82,11 +82,11 @@ class LinePayAPI:
         return {"status": "success", "data": line_pay_response}
 
     @staticmethod
-    async def inquire(channel_id: str, channel_secret: str, order_id: str):
+    async def inquire(channel_id: str, channel_secret: str, order_id: str, test: int=0):
         try:
+            # ✅ 使用 test 變數來判定環境
             base_url = (
-                LinePayAPI.LINE_PAY_PRODUCTION_URL if os.getenv("APP_ENV") == "production" 
-                else LinePayAPI.LINE_PAY_SANDBOX_URL
+                LinePayAPI.LINE_PAY_SANDBOX_URL if test == 1 else LinePayAPI.LINE_PAY_PRODUCTION_URL
             )
             url = f"{base_url}?orderId={order_id}"
 
@@ -95,16 +95,20 @@ class LinePayAPI:
                 "X-LINE-ChannelId": channel_id,
                 "X-LINE-ChannelSecret": channel_secret,
             }
+
             async with httpx.AsyncClient() as client:
                 response = await client.get(url, headers=headers, timeout=20.0)
                 response.raise_for_status()
                 result = response.json()
 
             return {"status": "success", "data": result}
+
         except httpx.RequestError as exc:
             raise HTTPException(status_code=500, detail=f"Request failed: {exc}")
+
         except httpx.HTTPStatusError as exc:
             raise HTTPException(status_code=exc.response.status_code, detail=f"Error: {exc.response.text}")
+
 
     @staticmethod
     async def refund(request: LinePayRefundRequest):
