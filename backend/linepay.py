@@ -88,7 +88,7 @@ class LinePayAPI:
             base_url = (
                 LinePayAPI.LINE_PAY_SANDBOX_URL if test == 1 else LinePayAPI.LINE_PAY_PRODUCTION_URL
             )
-            url = f"{base_url}?orderId={order_id}"
+            url = f"{base_url}/orders/{order_id}/check"
 
             headers = {
                 "Content-Type": "application/json",
@@ -127,7 +127,7 @@ class LinePayAPI:
             base_url = (
                 LinePayAPI.LINE_PAY_SANDBOX_URL if request.test == 1 else LinePayAPI.LINE_PAY_PRODUCTION_URL
             )
-            url = f"{base_url}/{request.transactionId}/refund"
+            url = f"{base_url}/orders/{request.transactionId}/refund"
 
             body = {"refundAmount": request.refundAmount}
             headers = {
