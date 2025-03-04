@@ -1,6 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
 from esunpay import EsunPayAPI, EsunPayRequest
 from linepay import LinePayAPI, LinePayRequest, LinePayRefundRequest
+from logdownload import LogAPI
 
 app = FastAPI()
 
@@ -20,3 +21,11 @@ async def linepay_refund(request: LinePayRefundRequest):
 @app.post("/api/esunpay/pay")
 async def esunpay_pay(request: EsunPayRequest):
     return await EsunPayAPI.pay(request)
+
+@app.post("/api/machine/{machine_id}/log/update")
+async def upload_log(machine_id: str, file: UploadFile = File(...)):
+    return await LogAPI.upload_log(machine_id, file)
+
+@app.get("/api/machine/{machine_id}/log/download/{filename}")
+async def download_log(machine_id: str, filename: str):
+    return await LogAPI.download_log(machine_id, filename)
