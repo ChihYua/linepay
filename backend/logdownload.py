@@ -1,6 +1,5 @@
 from pathlib import Path
 import datetime
-import chardet
 from fastapi import UploadFile, HTTPException
 from fastapi.responses import HTMLResponse
 
@@ -31,17 +30,8 @@ class LogAPI:
             raise HTTPException(status_code=404, detail="File not found")
 
         try:
-            with file_path.open("rb") as f:
-                raw_data = f.read()
-
-            result = chardet.detect(raw_data)
-            encoding = result["encoding"]
-
-            if not encoding:
-                raise HTTPException(status_code=500, detail="Unable to detect file encoding")
-
-            return raw_data.decode(encoding, errors='ignore')
-
+            content = file_path.read_text(encoding="utf-8")
+            return content.replace("\\n", "\n")
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error reading file: {str(e)}")
 
@@ -61,16 +51,7 @@ class LogAPI:
             raise HTTPException(status_code=404, detail="File not found")
 
         try:
-            with file_path.open("rb") as f:
-                raw_data = f.read()
-
-            result = chardet.detect(raw_data)
-            encoding = result["encoding"]
-
-            if not encoding:
-                raise HTTPException(status_code=500, detail="Unable to detect file encoding")
-
-            content = raw_data.decode(encoding, errors='ignore').replace("\\n", "\n")
+            content = file_path.read_text(encoding="utf-8").replace("\\n", "\n")
             return HTMLResponse(content=f"""
             <html>
                 <head><meta charset="utf-8"><title>Log File</title></head>
@@ -79,6 +60,5 @@ class LogAPI:
                 </body>
             </html>
             """)
-
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error reading file: {str(e)}")
