@@ -2,7 +2,7 @@ from fastapi import FastAPI, UploadFile, File
 from esunpay import EsunPayAPI, EsunPayRequest
 from linepay import LinePayAPI, LinePayRequest, LinePayRefundRequest
 from logdownload import LogAPI
-
+from fastapi.responses import HTMLResponse
 app = FastAPI()
 
 # 合併後的請求格式
@@ -29,3 +29,11 @@ async def upload_log(machine_id: str, file: UploadFile = File(...)):
 @app.get("/api/machine/{machine_id}/log/download/{filename}")
 async def download_log(machine_id: str, filename: str):
     return await LogAPI.download_log(machine_id, filename)
+
+@app.get("/api/machine/{machine_id}/log/download")
+async def list_logs(machine_id: str):
+    return await LogAPI.list_logs(machine_id)
+
+@app.get("/api/machine/{machine_id}/log/show/{filename}", response_class=HTMLResponse)
+async def show_log(machine_id: str, filename: str):
+    return await LogAPI.show_log(machine_id, filename)
