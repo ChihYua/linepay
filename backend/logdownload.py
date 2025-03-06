@@ -13,9 +13,11 @@ class LogAPI:
         machine_dir = BASE_DIR / machine_id
         machine_dir.mkdir(exist_ok=True)
         
-        # 以當前日期命名檔案，例如 20250228.txt
-        today_date = datetime.datetime.now().strftime("%Y%m%d")
-        file_name = f"{today_date}.txt"
+        # 使用上傳檔案原始檔名作為檔名
+        file_name = file.filename
+        if not file_name:
+            raise HTTPException(status_code=400, detail="Invalid file name")
+        
         file_path = machine_dir / file_name
 
         with file_path.open("wb") as buffer:
