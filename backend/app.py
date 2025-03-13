@@ -1,8 +1,9 @@
 from fastapi import FastAPI, UploadFile, File
 from esunpay import EsunPayAPI, EsunPayRequest
 from linepay import LinePayAPI, LinePayRequest, LinePayRefundRequest
-from logdownload import LogAPI
+from logdownload import LogAPI, schedule_log_upload
 from fastapi.responses import HTMLResponse
+import asyncio
 app = FastAPI()
 
 # 合併後的請求格式
@@ -38,3 +39,10 @@ async def list_logs(machine_id: str):
 async def show_log(machine_id: str, filename: str):
     return await LogAPI.show_log(machine_id, filename)
 
+@app.get("/api/machine/log/machinelist")
+async def list_machines():
+    return await LogAPI.list_machines()
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(schedule_log_upload())
