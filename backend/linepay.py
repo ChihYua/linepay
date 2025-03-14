@@ -74,6 +74,14 @@ class LinePayAPI:
                 response = await client.post(pay_url, json=body, headers=headers, timeout=20.0)
                 response.raise_for_status()
             line_pay_response = response.json()
+            
+            # ✅ 新增 returnCode 判斷邏輯
+            return_code = line_pay_response.get("returnCode")
+            if return_code == "0000":
+                return {"status": "success", "data": line_pay_response}
+            else:
+                error_message = line_pay_response.get("returnMessage", "Unknown error")
+                raise HTTPException(status_code=400, detail=f"LINE Pay Error: {error_message} (Code: {return_code})")
         except httpx.RequestError as exc:
             raise HTTPException(status_code=500, detail=f"LINE Pay Request failed: {exc}")
         except httpx.HTTPStatusError as exc:
