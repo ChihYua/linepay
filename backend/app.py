@@ -39,6 +39,10 @@ async def list_logs(machine_id: str):
 async def show_log(machine_id: str, filename: str):
     return await LogAPI.show_log(machine_id, filename)
 
+@app.get("/api/machine/{machine_id}/log/show", response_class=HTMLResponse)
+async def show_machine_logs(machine_id: str):
+    return await LogAPI.show_machine_logs(machine_id)
+
 @app.get("/api/machine")
 async def list_machines():
     return await LogAPI.list_machines()

@@ -111,6 +111,24 @@ class LogAPI:
             async with session.post(B010_API_URL, json=payload) as response:
                 if response.status != 200:
                     print(f"Failed to upload log for {machine_id}: {await response.text()}")
+    
+    @staticmethod
+    async def show_machine_logs(machine_id: str):
+        machine_dir = BASE_DIR / machine_id
+        if not machine_dir.exists():
+            raise HTTPException(status_code=404, detail="Machine ID not found")
+        
+        files = [f.name for f in machine_dir.iterdir() if f.is_file()]
+        file_list_html = "".join(f"<li>{file}</li>" for file in files)
+        return HTMLResponse(content=f"""
+        <html>
+            <head><meta charset="utf-8"><title>Log List</title></head>
+            <body>
+                <h1>Logs for Machine {machine_id}</h1>
+                <ul>{file_list_html}</ul>
+            </body>
+        </html>
+        """)
 
 async def schedule_log_upload():
     while True:
