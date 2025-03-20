@@ -118,8 +118,13 @@ class LogAPI:
         if not machine_dir.exists():
             raise HTTPException(status_code=404, detail="Machine ID not found")
         
-        files = [f.name for f in machine_dir.iterdir() if f.is_file()]
-        file_list_html = "".join(f"<li>{file}</li>" for file in files)
+        files = sorted(
+            machine_dir.iterdir(), 
+            key=lambda f: f.stat().st_mtime, 
+            reverse=True
+        )
+        
+        file_list_html = "".join(f"<li>{file.name}</li>" for file in files if file.is_file())
         return HTMLResponse(content=f"""
         <html>
             <head><meta charset="utf-8"><title>Log List</title></head>
