@@ -103,23 +103,24 @@ class LinePayAPI:
             else:
                 return_code, return_message, status = str(exc.response.status_code), exc.response.text, "failed"
 
+
         except httpx.RequestError as exc:
             return_code, return_message, status = "9999", str(exc), "failed"
             
-            # ✅ 儲存交易記錄到 MySQL
-            await LinePayAPI.save_transaction(order_id, request, status, return_code, return_message)
+           # ✅ 確保交易記錄無論成功或失敗都儲存到 MySQL
+        await LinePayAPI.save_transaction(order_id, request, status, return_code, return_message)
             
-            if return_code == "0000":
-                return {"status": "success", "data": line_pay_response}
-            elif return_code == "503":
-                return {"status": "failed", "message": "金流未開放"}
-            else:
-                error_message = line_pay_response.get("returnMessage", "Unknown error")
-                raise HTTPException(status_code=400, detail=f"LINE Pay Error: {error_message} (Code: {return_code})")
-        except httpx.RequestError as exc:
-            raise HTTPException(status_code=500, detail=f"LINE Pay Request failed: {exc}")
-        except httpx.HTTPStatusError as exc:
-            raise HTTPException(status_code=exc.response.status_code, detail=f"LINE Pay Error: {exc.response.text}")
+           # ✅ 修正後的回應邏輯
+        if return_code == "0000":
+            return {"status": "success", "data": line_pay_response}
+        elif return_code == "503":
+            return {
+                    "status": "failed",
+                    "message": "金流未開放"
+                    }
+        else:
+            raise HTTPException(status_code=int(return_code) if return_code.isdigit() else 400, 
+                                detail=f"LINE Pay Error: {return_message} (Code: {return_code})")
 
     
     @staticmethod
