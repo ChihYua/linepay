@@ -3,6 +3,7 @@ import httpx
 import os
 from fastapi import HTTPException
 from pydantic import BaseModel
+from database import Database
 
 # 定義 LINE Pay 交易請求的資料結構
 class LinePayRequest(BaseModel):
@@ -76,9 +77,42 @@ class LinePayAPI:
             line_pay_response = response.json()
             
             # ✅ 新增 returnCode 判斷邏輯
-            return_code = line_pay_response.get("returnCode")
+            return_code = line_pay_response.get("returnCode", "9999")  # 預設錯誤代碼
+            return_message = line_pay_response.get("returnMessage", "Unknown error")
+            status = "success" if return_code == "0000" else "failed"
+            
+        except httpx.TimeoutException:  # ✅ **新增逾時處理**
+            try:
+                inquire_response = await LinePayAPI.inquire(channel_id, channel_secret, order_id, request.test)
+                return {
+                    "status": "timeout",
+                    "data": inquire_response,
+                }
+            except HTTPException as inquire_exc:
+                if inquire_exc.status_code == 500 and "timeout" in inquire_exc.detail.lower():
+                    return {
+                        "status": "error",
+                        "code": 9999,
+                        "message": "Payment request and inquiry both timed out.",
+                    }
+                raise inquire_exc  # 若 `inquire` 本身報錯，則拋出
+
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 503:
+                return_code, return_message, status = "503", "金流未開放", "failed"
+            else:
+                return_code, return_message, status = str(exc.response.status_code), exc.response.text, "failed"
+
+        except httpx.RequestError as exc:
+            return_code, return_message, status = "9999", str(exc), "failed"
+            
+            # ✅ 儲存交易記錄到 MySQL
+            await LinePayAPI.save_transaction(order_id, request, status, return_code, return_message)
+            
             if return_code == "0000":
                 return {"status": "success", "data": line_pay_response}
+            elif return_code == "503":
+                return {"status": "failed", "message": "金流未開放"}
             else:
                 error_message = line_pay_response.get("returnMessage", "Unknown error")
                 raise HTTPException(status_code=400, detail=f"LINE Pay Error: {error_message} (Code: {return_code})")
@@ -87,7 +121,26 @@ class LinePayAPI:
         except httpx.HTTPStatusError as exc:
             raise HTTPException(status_code=exc.response.status_code, detail=f"LINE Pay Error: {exc.response.text}")
 
-        return {"status": "success", "data": line_pay_response}
+    
+    @staticmethod
+    async def save_transaction(order_id, request, status, return_code, return_message):
+        """將交易記錄存入 MySQL"""
+        conn = await Database.get_connection()
+        async with conn.cursor() as cursor:
+            sql = """
+            INSERT INTO linepay_transactions (order_id, machine, barcode, amount, payway, status, return_code, return_message)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            await cursor.execute(sql, (
+                order_id,
+                request.machine,
+                request.barcode,
+                request.amount,
+                request.payway,
+                status,
+                return_code,
+                return_message
+            ))
 
     @staticmethod
     async def inquire(channel_id: str, channel_secret: str, order_id: str, test: int=0):

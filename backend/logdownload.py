@@ -18,6 +18,9 @@ class LogAPI:
         machine_dir = BASE_DIR / machine_id
         machine_dir.mkdir(exist_ok=True)
         
+          # 刪除超過 1 個月的 log 檔案
+        await LogAPI.delete_old_logs(machine_dir)
+        
         # 使用上傳檔案原始檔名作為檔名
         file_name = file.filename
         if not file_name:
@@ -29,6 +32,15 @@ class LogAPI:
             buffer.write(await file.read())
 
         return {"status": "success", "message": "File uploaded", "filename": file_name}
+    
+    @staticmethod
+    async def delete_old_logs(machine_dir: Path):
+        one_month_ago = datetime.datetime.now() - datetime.timedelta(days=30)
+        for file in machine_dir.iterdir():
+            if file.is_file() and datetime.datetime.fromtimestamp(file.stat().st_mtime) < one_month_ago:
+                file.unlink()
+                print(f"Deleted old log file: {file.name}")
+    
 
     @staticmethod
     async def download_log(machine_id: str, filename: str):
