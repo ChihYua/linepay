@@ -49,7 +49,10 @@ class LinePayAPI:
         channel_id = data_items[0].get("LINE_ChannelId")
         channel_secret = data_items[0].get("LINE_ChannelSecret")
         if not channel_id or not channel_secret:
-            raise HTTPException(status_code=500, detail="Missing LINE Pay credentials.")
+            return_code, return_message, status = "200", "金流未開放", "failed"
+            await LinePayAPI.save_transaction("N/A", request, status, return_code, return_message)
+            return {"status": "failed", "message": "金流未開放"}
+
 
         try:
             base_url = (
@@ -113,14 +116,8 @@ class LinePayAPI:
            # ✅ 修正後的回應邏輯
         if return_code == "0000":
             return {"status": "success", "data": line_pay_response}
-        elif return_code == "503":
-            return {
-                    "status": "failed",
-                    "message": "金流未開放"
-                    }
         else:
-            raise HTTPException(status_code=int(return_code) if return_code.isdigit() else 400, 
-                                detail=f"LINE Pay Error: {return_message} (Code: {return_code})")
+            raise HTTPException(status_code=400, detail=f"LINE Pay Error: {return_message} (Code: {return_code})")
 
     
     @staticmethod
