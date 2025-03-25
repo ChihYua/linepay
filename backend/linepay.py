@@ -45,9 +45,10 @@ class LinePayAPI:
         data_items = api_b_response.get("data", [])
         if not data_items or not isinstance(data_items, list):
             raise HTTPException(status_code=500, detail="Invalid API B response structure.")
-
-        channel_id = data_items[0].get("LINE_ChannelId")
-        channel_secret = data_items[0].get("LINE_ChannelSecret")
+        
+        # ✅ 確保 channel_id 和 channel_secret 不是 None 或空字串
+        channel_id = data_items[0].get("LINE_ChannelId", "").strip()
+        channel_secret = data_items[0].get("LINE_ChannelSecret", "").strip()
         if not channel_id or not channel_secret:
             return_code, return_message, status = "200", "金流未開放", "failed"
             await LinePayAPI.save_transaction("N/A", request, status, return_code, return_message)
