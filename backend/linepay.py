@@ -51,7 +51,6 @@ class LinePayAPI:
         channel_secret = data_items[0].get("LINE_ChannelSecret", "").strip()
         if not channel_id or not channel_secret:
             return_code, return_message, status = "200", "金流未開放", "failed"
-            await LinePayAPI.save_transaction("N/A", request, status, return_code, return_message)
             return {"status": "failed", "message": "金流未開放"}
 
 
