@@ -158,8 +158,8 @@ class LinePayAPI:
             api_b_response = response.json()
 
             data_items = api_b_response.get("data", [])
-            channel_id = data_items[0].get("LINE_ChannelId")
-            channel_secret = data_items[0].get("LINE_ChannelSecret")
+            channel_id = data_items[0].get("LINE_ChannelId", "").strip()
+            channel_secret = data_items[0].get("LINE_ChannelSecret", "").strip()
 
             base_url = (
                 LinePayAPI.LINE_PAY_SANDBOX_URL if request.test == 1 else LinePayAPI.LINE_PAY_PRODUCTION_URL
