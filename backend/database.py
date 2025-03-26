@@ -8,7 +8,7 @@ class Database:
         """初始化 MySQL 連線池"""
         if cls._pool is None:
             cls._pool = await aiomysql.create_pool(
-                host="http://152.42.211.122/phpmyadmin",  # 你的 MySQL 伺服器 IP
+                host="152.42.211.122",  # 你的 MySQL 伺服器 IP
                 port=3306,
                 user="root",  # 你的 MySQL 使用者名稱
                 password="1234abcd",  # 你的 MySQL 密碼
