@@ -11,7 +11,7 @@ class Database:
                 host="152.42.211.122",  # 你的 MySQL 伺服器 IP
                 port=3306,
                 user="root",  # 你的 MySQL 使用者名稱
-                password="1234abcd",  # 你的 MySQL 密碼
+                password="1234Abcd@",  # 你的 MySQL 密碼
                 db="linepay_db",  # 你的 MySQL 資料庫名稱
                 autocommit=True,
                 minsize=1,
