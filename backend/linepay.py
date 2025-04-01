@@ -3,7 +3,7 @@ import httpx
 import os
 from fastapi import HTTPException
 from pydantic import BaseModel
-
+from database import Database
 
 # 定義 LINE Pay 交易請求的資料結構
 class LinePayRequest(BaseModel):
@@ -84,6 +84,9 @@ class LinePayAPI:
             return_message = line_pay_response.get("returnMessage", "Unknown error")
             status = "success" if return_code == "0000" else "failed"
             
+             # ✅ 將交易記錄存入 MySQL
+            await LinePayAPI.save_transaction(order_id, request, status, return_code, return_message)
+            
         except httpx.TimeoutException:  # ✅ **新增逾時處理**
             try:
                 inquire_response = await LinePayAPI.inquire(channel_id, channel_secret, order_id, request.test)
@@ -117,6 +120,24 @@ class LinePayAPI:
         else:
             raise HTTPException(status_code=400, detail=f"LINE Pay Error: {return_message} (Code: {return_code})")
 
+    @staticmethod
+    async def save_transaction(order_id, request, status, return_code, return_message):
+        conn = await Database.get_connection()
+        async with conn.cursor() as cursor:
+            sql = """
+            INSERT INTO linepay_transactions (order_id, machine, barcode, amount, payway, status, return_code, return_message)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            await cursor.execute(sql, (
+                order_id,
+                request.machine,
+                request.barcode,
+                request.amount,
+                request.payway,
+                status,
+                return_code,
+                return_message
+            ))
 
     @staticmethod
     async def inquire(channel_id: str, channel_secret: str, order_id: str, test: int=0):
