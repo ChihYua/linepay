@@ -3,11 +3,12 @@ version: '3.8'
 services:
   app:
     image: my-python-app
-    build: .
+    build:
+      context: ./backend   # 指定正確的 build 目錄
     ports:
       - "5000:5000"
     volumes:
-      - .:/app
+      - ./backend:/app
     environment:
       - PYTHONUNBUFFERED=1
     command: ["python", "app.py"]
