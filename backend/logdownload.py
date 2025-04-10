@@ -136,7 +136,7 @@ class LogAPI:
             reverse=True
         )
         
-        file_list_html = "".join(f"<li>{file.name}</li>" for file in files if file.is_file())
+        file_list_html = "".join(f'<li><a href="/api/machine/{machine_id}/log/show/{file.name}">{file.name}</a></li>' for file in files if file.is_file())
         return HTMLResponse(content=f"""
         <html>
             <head><meta charset="utf-8"><title>Log List</title></head>
