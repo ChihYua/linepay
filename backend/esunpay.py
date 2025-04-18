@@ -32,9 +32,9 @@ class EsunPayAPI:
         if not data_items or not isinstance(data_items, list):
             raise HTTPException(status_code=500, detail="Invalid API B response structure.")
         
-        store_id = data_items[0].get("ESUN_StoreID")
-        term_id = data_items[0].get("ESUN_TermID")
-        hash_key = data_items[0].get("ESUN_Hash")
+        store_id = data_items[0].get("t050v41")  # 玉山掃碼 StoreID
+        term_id = data_items[0].get("t050v42")   # 玉山掃碼 TermID
+        hash_key = data_items[0].get("t050v43")  # 玉山掃碼 Key
 
         if not store_id or not term_id or not hash_key:
             raise HTTPException(status_code=500, detail="Missing StoreID, TermID, or Hash from API B.")
