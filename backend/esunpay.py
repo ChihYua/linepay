@@ -59,12 +59,12 @@ class EsunPayAPI:
         }
 
         # 🔹 Step 3: 呼叫玉山支付 API
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     EsunPayAPI.ESUNPAY_API_URL,
-                    json=transaction_data,
+                    data=transaction_data,  # ✅ 使用 data 而不是 json
                     headers=headers,
                     timeout=20.0
                 )
