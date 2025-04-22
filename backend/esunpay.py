@@ -58,6 +58,11 @@ class EsunPayAPI:
             "BuyerPaymentType": 1,
         }
 
+ # ✅ DEBUG log
+        print("🚀 實際送出給玉山的 payload：")
+        for k, v in transaction_data.items():
+            print(f"{k}: {v}")
+
         # 🔹 Step 3: 呼叫玉山支付 API
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         try:
