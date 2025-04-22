@@ -69,7 +69,7 @@ class EsunPayAPI:
         transaction_data_encoded = urllib.parse.quote(transaction_json, safe='')
 
         # === 3️⃣ 組 HashDigest ===
-        hash_source = f"tradeapi" + "payment" + transaction_data_encoded + key
+        hash_source = f"tradeapi" + "payment" + transaction_data_encoded + hash_key
         hash_digest = hashlib.sha256(hash_source.encode("utf-8")).hexdigest().upper()
 
         # === 4️⃣ 組最終 payload ===
