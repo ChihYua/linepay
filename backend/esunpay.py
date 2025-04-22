@@ -1,5 +1,6 @@
 import datetime
 import httpx
+import hashlib
 from fastapi import HTTPException
 from pydantic import BaseModel
 
@@ -43,19 +44,25 @@ class EsunPayAPI:
         if not store_id or not term_id or not hash_key:
             raise HTTPException(status_code=500, detail="Missing StoreID, TermID, or Hash from API B.")
 
-        # 🔹 Step 2: 準備玉山支付訂單資料
-        order_id = f"{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}{request.machine}"
+         # 2️⃣ 組訂單資料
+        order_no = f"{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}{request.machine}"
+        order_dt = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+
+        # 3️⃣ 建立 HashDigest
+        hash_source = f"{store_id}{term_id}{order_no}{request.amount}{hash_key}"
+        hash_digest = hashlib.sha256(hash_source.encode("utf-8")).hexdigest().upper()
         transaction_data = {
             "StoreID": store_id,
             "TermID": term_id,
             "Timeout": 20,
             "BuyerID": request.barcode,
-            "OrderNo": order_id,
+            "OrderNo": order_no,
             "OrderCurrency": "TWD",
             "OrderAmount": request.amount,
-            "OrderDT": datetime.datetime.now().strftime("%Y%m%d%H%M%S"),
-            "OrderTitle": order_id,
+            "OrderDT": order_dt,
+            "OrderTitle": order_no,
             "BuyerPaymentType": 1,
+            "HashDigest": hash_digest  # ✅ 關鍵簽章
         }
 
  # ✅ DEBUG log
