@@ -101,14 +101,26 @@ class EsunPayAPI:
                     timeout=20.0
                 )
                 response.raise_for_status()
+            # === 4️⃣ 嘗試雙層解碼 ===
             try:
-                return {"status": "success", "data": response.json()}
-            except Exception:
+                first_decode = urllib.parse.unquote(response.text)
+                parsed = json.loads(first_decode)
+
+                if "TransactionData" in parsed:
+                    parsed["TransactionData"] = json.loads(urllib.parse.unquote(parsed["TransactionData"]))
+
+                return {
+                    "status": "success",
+                    "data": parsed
+                }
+
+            except Exception as e:
                 return {
                     "status": "error",
                     "raw": response.text,
-                    "message": "EsunPay 回傳非 JSON，可能為錯誤頁或格式"
+                    "message": f"EsunPay 回傳無法解析：{str(e)}"
                 }
+
 
         except httpx.RequestError as exc:
             raise HTTPException(status_code=500, detail=f"EsunPay Request failed: {exc}")
