@@ -1,6 +1,8 @@
 import datetime
 import httpx
 import hashlib
+import json
+import urllib.parse
 from fastapi import HTTPException
 from pydantic import BaseModel
 
@@ -48,9 +50,6 @@ class EsunPayAPI:
         order_no = f"{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}{request.machine}"
         order_dt = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 
-        # 3️⃣ 建立 HashDigest
-        hash_source = f"{store_id}{term_id}{order_no}{request.amount}{hash_key}"
-        hash_digest = hashlib.sha256(hash_source.encode("utf-8")).hexdigest().upper()
         transaction_data = {
             "StoreID": store_id,
             "TermID": term_id,
@@ -61,14 +60,35 @@ class EsunPayAPI:
             "OrderAmount": request.amount,
             "OrderDT": order_dt,
             "OrderTitle": order_no,
-            "BuyerPaymentType": 1,
-            "HashDigest": hash_digest  # ✅ 關鍵簽章
+            "BuyerPaymentType": 1
         }
 
- # ✅ DEBUG log
-        print("🚀 實際送出給玉山的 payload：")
-        for k, v in transaction_data.items():
-            print(f"{k}: {v}")
+
+        # 將 TransactionData JSON 壓縮為無空格並做 URL encode
+        transaction_json = json.dumps(transaction_data, separators=(',', ':'))
+        transaction_data_encoded = urllib.parse.quote(transaction_json, safe='')
+
+        # === 3️⃣ 組 HashDigest ===
+        hash_source = f"tradeapi" + "payment" + transaction_data_encoded + key
+        hash_digest = hashlib.sha256(hash_source.encode("utf-8")).hexdigest().upper()
+
+        # === 4️⃣ 組最終 payload ===
+        final_payload = {
+            "Type": "tradeapi",
+            "Action": "payment",
+            "TransactionData": transaction_data_encoded,
+            "HashDigest": hash_digest
+        }
+
+        # 最終上傳內容需再次 JSON 並 URL encode
+        encoded_json = urllib.parse.quote(json.dumps(final_payload, separators=(',', ':')), safe='')
+
+        print("🔍 寄出前內容：")
+        print("原始 Transaction JSON:", transaction_json)
+        print("URL encoded TransactionData:", transaction_data_encoded)
+        print("Hash Source:", hash_source)
+        print("HashDigest:", hash_digest)
+        print("最終傳送 JSON:", final_payload)
 
         # 🔹 Step 3: 呼叫玉山支付 API
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
@@ -76,21 +96,21 @@ class EsunPayAPI:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     EsunPayAPI.ESUNPAY_API_URL,
-                    data=transaction_data,  # ✅ 使用 data 而不是 json
+                    data=f"json={encoded_json}",
                     headers=headers,
                     timeout=20.0
                 )
                 response.raise_for_status()
             try:
-                esunpay_response = response.json()
+                return {"status": "success", "data": response.json()}
             except Exception:
-                print("❌ 玉山非 JSON 回應：", response.text)
-                raise HTTPException(status_code=500, detail=f"EsunPay 回傳非 JSON：{response.text}")
-        except httpx.TimeoutException:
-            return {"status": "error", "code": 9999, "message": "Payment request timed out."}
+                return {
+                    "status": "error",
+                    "raw": response.text,
+                    "message": "EsunPay 回傳非 JSON，可能為錯誤頁或格式"
+                }
+
         except httpx.RequestError as exc:
             raise HTTPException(status_code=500, detail=f"EsunPay Request failed: {exc}")
         except httpx.HTTPStatusError as exc:
             raise HTTPException(status_code=exc.response.status_code, detail=f"EsunPay Error: {exc.response.text}")
-
-        return {"status": "success", "data": esunpay_response}
